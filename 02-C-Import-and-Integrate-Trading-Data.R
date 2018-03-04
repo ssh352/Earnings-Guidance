@@ -1,9 +1,10 @@
-# Copyright (c) 2017-2018 by Einzbern
+# Copyright Reserved
+
+# The 2nd R source file imports and integrates all necessary TRADING relevant data
 
 #####----Guidance----#####
 
-load("01-D-Mandatory-and-Forecast.RData")
-options(scipen = 99, digits = 3)
+load("../Output/01-D-Report-Data.RData")
 library(tidyverse)
 library(readxl)
 library(DBI)
@@ -15,7 +16,7 @@ library(lubridate)
 # # 个股日涨跌幅
 # Return_Rate <- "../Data/" %>% 
 #   dir() %>% 
-#   grep("^个股日涨跌幅\\(上海", ., value = T) %>% 
+#   grep("个股日涨跌幅", ., value = T) %>% 
 #   file.path("../Data", ., "STK_MKT_Dalyr.xls") %>% 
 #   lapply(read_csmar_data) %>% 
 #   bind_rows() %>% 
@@ -25,9 +26,9 @@ library(lubridate)
 #   mutate(`交易日期` = ymd(`交易日期`)) %>% 
 
 # 日个股回报率
-Trading <- "../Data/" %>% 
+Trading_Data <- "../Data/" %>% 
   dir() %>% 
-  grep("^日个股回报率文件\\(上海", ., value = T) %>% 
+  grep("日个股回报率文件", ., value = T) %>% 
   file.path("../Data", ., "TRD_Dalyr.xls") %>% 
   lapply(read_csmar_data, col_types = c("text", "text", rep("skip", 5), "numeric", rep("skip", 2), "numeric", rep("skip", 6))) %>% 
   bind_rows() %>% 
@@ -40,11 +41,11 @@ Trading <- "../Data/" %>%
 
 #####----读取并合并FF三因子数据（CSMAR，考虑现金红利再投资）----#####
 
-Trading <- read_csmar_data("../Data/三因子模型指标（日）/STK_MKT_ThrfacDay.xls") %>% 
+Trading_Data <- read_csmar_data("../Data/08-三因子模型指标-日/STK_MKT_ThrfacDay.xls") %>% 
   mutate_at(vars(`交易日期`), ymd) %>% 
   filter(`股票市场类型编码` == "P9706") %>% 
   select(`交易日期`, Rm = `市场风险溢价因子(流通市值加权)`, SMB = `市值因子(流通市值加权)`, HML = `账面市值比因子(流通市值加权)`) %>% 
-  left_join(Trading, .)
+  left_join(Trading_Data, .)
 
 # # FF三因子模型指标中的市场回报率和市场回报率文件有多少差异？
 # read_csmar_data("../Data/日市场回报率文件/TRD_Dalym.xls") %>% 
@@ -60,12 +61,12 @@ Trading <- read_csmar_data("../Data/三因子模型指标（日）/STK_MKT_Thrfa
 
 #####----读取并合并无风险利率数据----#####
 
-Trading <- read_csmar_data("../Data/无风险利率文件/TRD_Nrrate.xls", 
+Trading_Data <- read_csmar_data("../Data/09-无风险利率文件/TRD_Nrrate.xls", 
                            col_types = c(rep("guess", 2), "skip", "guess", rep("skip", 2))) %>% 
   filter(`无风险利率基准` == "NRI01") %>% 
   select(`交易日期` = `统计日期`, Rf = `日度化无风险利率(%)`) %>% 
   mutate_at(vars(`交易日期`), ymd) %>% 
-  left_join(Trading, .) %>% 
+  left_join(Trading_Data, .) %>% 
   mutate(RiRf = Ri - Rf, RmRf = Rm - Rf)
 
 
@@ -80,21 +81,21 @@ Up_Down_Limit_Status <- dbGetQuery(conn,
                                    sprintf("
                                            SELECT S_INFO_WINDCODE, TRADE_DT, UP_DOWN_LIMIT_STATUS 
                                            FROM AShareEODDerivativeIndicator 
-                                           WHERE TRADE_DT BETWEEN '%s' AND '%s' AND RIGHT(S_INFO_WINDCODE, 2) = 'SH'
+                                           WHERE TRADE_DT BETWEEN '%s' AND '%s'
                                            ",  
                                            start_time - years(1) - days(1), end_time %m+% months(6)))  # SQLServer中between好像不包括左端点
 
 dbDisconnect(conn)
 
-Trading <- Up_Down_Limit_Status %>% 
+Trading_Data <- Up_Down_Limit_Status %>% 
   as_tibble() %>% 
   na.omit() %>% 
   rename(`证券代码` = S_INFO_WINDCODE, `交易日期` = TRADE_DT, `涨跌停状态` = UP_DOWN_LIMIT_STATUS) %>% 
   mutate(`证券代码` = substr(`证券代码`, 1, 6), `交易日期` = ymd(`交易日期`), `涨跌停状态` = as.integer(`涨跌停状态`)) %>% 
-  left_join(Trading, .)
+  left_join(Trading_Data, .)
 
 # # 读取并合并涨跌停数据（Wind）
-# Trading <- "../Data/涨跌停数据(沪深)" %>% 
+# Trading_Data <- "../Data/涨跌停数据(沪深)" %>% 
 #   dir(pattern = "\\.xls$", full.names = TRUE) %>% 
 #   `[`(-(140:141)) %>% # 去掉2个空表
 #   lapply(read_excel, 
@@ -106,10 +107,10 @@ Trading <- Up_Down_Limit_Status %>%
 #          `交易日期` = ymd(`交易日期`), 
 #          `涨跌停状态` = as.integer(`涨跌停状态`)) %>% 
 #   arrange(`证券代码`, `交易日期`) %>% 
-#   left_join(Trading, .)
+#   left_join(Trading_Data, .)
 
 
 #####----End----#####
 
 rm(Up_Down_Limit_Status)
-save.image("02-D-Trading.RData")
+save.image("../Output/02-D-Trading-Data.RData")
