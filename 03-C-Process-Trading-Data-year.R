@@ -10,6 +10,8 @@ library(moments)
 library(xlsx)
 library(stargazer)
 
+#####----筛选业绩报告期为年报的样本----#####
+Report_Data <- filter(Report_Data, month(`业绩报告期`) == 12)
 
 #####----CAR----#####
 
@@ -140,7 +142,7 @@ re <- left_join(tmp3, CAR.summarise) %>%
        CAR.p = c(1, CAR.p[, 1]))) %>% 
   select(1, 2, 9, 3, 10, 4, 11, 5, 12, 6, 13, 7, 14, 8, 15)
 
-write.xlsx(re, paste0("../Output/", group.by, "[", window.t[1], ", ", window.t[2], "].xlsx"))
+write.xlsx(re, paste0("../Output/Year/", group.by, "[", window.t[1], ", ", window.t[2], "].xlsx"))
 
 return(re)
 })
