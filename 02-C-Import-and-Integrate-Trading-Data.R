@@ -1,14 +1,17 @@
 # Copyright Reserved
-
-# The 2nd R source file imports and integrates all necessary TRADING relevant data
+# Imports and integrates all necessary TRADING relevant data
 
 #####----Guidance----#####
 
-load("../Output/01-D-Report-Data.RData")
 library(tidyverse)
 library(readxl)
-library(DBI)
 library(lubridate)
+library(cnquant)
+load("../Output/01-D-Report-Data.RData")
+
+theme_set(
+  theme_grey(base_size = 15, base_family = "STSong")
+)
 
 
 #####----读取个股回报率数据----#####
@@ -26,11 +29,12 @@ library(lubridate)
 #   mutate(`交易日期` = ymd(`交易日期`)) %>% 
 
 # 日个股回报率
+col_type_tmp <- c("text", "text", rep("skip", 5), "numeric", rep("skip", 2), "numeric", rep("skip", 6))
 Trading_Data <- "../Data/" %>% 
   dir() %>% 
   grep("日个股回报率文件", ., value = T) %>% 
   file.path("../Data", ., "TRD_Dalyr.xls") %>% 
-  lapply(read_csmar_data, col_types = c("text", "text", rep("skip", 5), "numeric", rep("skip", 2), "numeric", rep("skip", 6))) %>% 
+  lapply(read_csmar_data, col_names = "Chinese", col_types = col_type_tmp) %>% 
   bind_rows() %>% 
   unique() %>% 
   rename(`成交额` = `日个股交易金额`, Ri = `考虑现金红利再投资的日个股回报率`) %>% 
@@ -41,7 +45,8 @@ Trading_Data <- "../Data/" %>%
 
 #####----读取并合并FF三因子数据（CSMAR，考虑现金红利再投资）----#####
 
-Trading_Data <- read_csmar_data("../Data/08-三因子模型指标-日/STK_MKT_ThrfacDay.xls") %>% 
+Trading_Data <- read_csmar_data("../Data/08-三因子模型指标-日/STK_MKT_ThrfacDay.xls", 
+                                col_names = "Chinese") %>% 
   mutate_at(vars(`交易日期`), ymd) %>% 
   filter(`股票市场类型编码` == "P9706") %>% 
   select(`交易日期`, Rm = `市场风险溢价因子(流通市值加权)`, SMB = `市值因子(流通市值加权)`, HML = `账面市值比因子(流通市值加权)`) %>% 
@@ -61,8 +66,10 @@ Trading_Data <- read_csmar_data("../Data/08-三因子模型指标-日/STK_MKT_Th
 
 #####----读取并合并无风险利率数据----#####
 
+col_type_tmp <- c(rep("guess", 2), "skip", "guess", rep("skip", 2))
 Trading_Data <- read_csmar_data("../Data/09-无风险利率文件/TRD_Nrrate.xls", 
-                           col_types = c(rep("guess", 2), "skip", "guess", rep("skip", 2))) %>% 
+                                col_names = "Chinese", 
+                                col_types = col_type_tmp) %>% 
   filter(`无风险利率基准` == "NRI01") %>% 
   select(`交易日期` = `统计日期`, Rf = `日度化无风险利率(%)`) %>% 
   mutate_at(vars(`交易日期`), ymd) %>% 
@@ -72,20 +79,18 @@ Trading_Data <- read_csmar_data("../Data/09-无风险利率文件/TRD_Nrrate.xls
 
 #####----读取个股涨跌停数据（SQL），并合并----#####
 
-conn <- dbConnect(RSQLServer::SQLServer(), 
-                  server = "124.65.136.170", 
-                  database = "Wind_FS", 
-                  properties = list(user = "Reuters", password = "ucas2017"))
+# 从SQL现下数据
+conn <- wind_sql_connect()
 
-Up_Down_Limit_Status <- dbGetQuery(conn, 
+Up_Down_Limit_Status <- DBI::dbGetQuery(conn,
                                    sprintf("
-                                           SELECT S_INFO_WINDCODE, TRADE_DT, UP_DOWN_LIMIT_STATUS 
-                                           FROM AShareEODDerivativeIndicator 
+                                           SELECT S_INFO_WINDCODE, TRADE_DT, UP_DOWN_LIMIT_STATUS
+                                           FROM AShareEODDerivativeIndicator
                                            WHERE TRADE_DT BETWEEN '%s' AND '%s'
-                                           ",  
+                                           ",
                                            start_time - years(1) - days(1), end_time %m+% months(6)))  # SQLServer中between好像不包括左端点
 
-dbDisconnect(conn)
+DBI::dbDisconnect(conn)
 
 Trading_Data <- Up_Down_Limit_Status %>% 
   as_tibble() %>% 

@@ -1,0 +1,134 @@
+---
+title: "业绩预告与股票市场表现"
+# author:
+#   - name: 刘洋
+#     affiliation: 中国科学院大学
+#   - name: 路昌
+#     affiliation: 中国科学院数学与系统科学研究院
+date: "2018/9/17"
+abstract: "待写"
+keywords: "业绩预告, 股票收益, 风险"
+output: 
+  rticles::ctex:
+    dev: cairo_pdf
+    fig_width: 4
+    fig_height: 3
+    fig_caption: yes
+    number_sections: yes
+documentclass: ctexart
+geometry: left=1.5cm, right=1.5cm
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage[table]{xcolor}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage[normalem]{ulem}
+  - \usepackage{makecell}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(DBI)
+library(lubridate)
+library(kableExtra)
+library(stargazer)
+library(cnquant)
+
+load("../Output/01-D-Report-Data.RData")
+# load("../Output/02-D-Trading-Data.RData")
+
+knitr::opts_chunk$set(echo = FALSE, 
+                      fig.align = "center")
+
+options(knitr.table.format = "latex")
+
+theme_set(
+  theme_classic(base_size = 12, base_family = "STSong")
+)
+```
+
+\newpage
+
+# 引言
+
+Test with \LaTeX.
+
+\newpage
+
+# 数据
+
+各季度各交易所公司收益情况对应的业绩预告发布要求统计
+
+```{r earns_quarter}
+Category_Count %>% 
+  kable(digits = 2L, 
+        caption = "各季度各交易所公司收益情况对应的业绩预告发布要求统计", 
+        booktabs = TRUE) %>% 
+  kable_styling(latex_options = "scale_down") %>% 
+  collapse_rows(columns = 1:2, latex_hline = "custom")
+```
+
+每个报告期公司发布业绩预告及更正次数
+
+```{r ann_connt}
+Earnings_Forecast %>%
+  count(`业绩预告发布次数`) %>%
+  kable(caption = "业绩预告及更正次数", 
+        booktabs = TRUE)
+```
+
+业绩预告应当发布与实际发布情况统计
+
+```{r}
+Report_Data %>% 
+  count(`业绩报告期`, `业绩预告发布情况_4类`) %>% 
+  spread(`业绩预告发布情况_4类`, n, fill = 0) %>% 
+  kable(caption = "业绩预告应当发布与实际发布情况",
+        booktabs = TRUE, 
+        linesep = c('\\addlinespace', '', '', ''))
+```
+
+业绩快报修正次数
+
+```{r}
+Early_Announcement %>% 
+  count(`业绩快报发布次数`) %>% 
+  kable(caption = "业绩快报及更正次数",
+        booktabs = TRUE)
+```
+
+
+业绩快报发布情况统计
+
+```{r}
+Report_Data %>% 
+  count(`业绩报告期`, `是否发布业绩快报`) %>% 
+  mutate(`是否发布业绩快报` = factor(`是否发布业绩快报`, labels = c("未发布", "发布"))) %>% 
+  spread(`是否发布业绩快报`, n, fill = 0) %>% 
+  kable(caption = "业绩快报发布情况",
+        booktabs = TRUE, 
+        linesep = c('\\addlinespace', '', '', ''))
+```
+
+业绩快报和定期报告实际值的差异
+
+```{r warning=FALSE}
+Report_Data %>% 
+  mutate_at(vars(`业绩快报归属于母公司所有者的净利润`, `归属于母公司所有者的净利润`), asinh) %>% 
+  ggplot(aes(x = `业绩快报归属于母公司所有者的净利润`, y = `归属于母公司所有者的净利润`)) + 
+  geom_point(alpha = 0.2) + 
+  geom_abline(intercept = 0, slope = 1)
+```
+
+
+
+

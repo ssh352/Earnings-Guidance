@@ -1,14 +1,12 @@
-# Copyright (c) 2018 by Einzbern
+# Copyright Reserved
 
 #####----Guidance----#####
 
-load("../Output/02-D-Trading-Data.RData")
-options(scipen = 99, digits = 3)
 library(tidyverse)
 library(lubridate)
 library(moments)
-library(xlsx)
-library(stargazer)
+load("../Output/02-D-Trading-Data.RData")
+options(scipen = 99, digits = 3)
 
 
 #####----CAR----#####
@@ -19,9 +17,9 @@ least_valid_days <- 63  # 交易日
 event <- "业绩报告_第一时间"
 
 Report_Data <- Report_Data %>%
-  mutate(`业绩预告发布情况_4类` = if_else(`业绩预告发布情况_4类` == "不需发没发", "A不需发没发", `业绩预告发布情况_4类`)) %>% 
+  mutate(`业绩预告发布情况_4类` = factor(`业绩预告发布情况_4类`) %>% relevel("不需发没发")) %>% 
   unite(`业绩预告情况_10类`, `业绩预告发布情况_4类`, `业绩预告与业绩报告比较_离散型`, remove = FALSE)
-table(Report_Data$`业绩预告情况_10类`)
+count(Report_Data, `业绩预告发布情况_4类`, `业绩预告与业绩报告比较_离散型`)
 
 group.by <- "业绩预告情况_10类" 
 ## 把这里改成 "业绩预告发布情况_4类"，"业绩预告与业绩报告比较_离散型"两种分别运行程序
